@@ -1,139 +1,92 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include <bluefruit.h>
-#include <TimeLib.h>
-#include <Wire.h>
-#include "epd2in13_V3.h" 
+// 请确保引用的头文件名和你修改后的驱动文件名一致
+#include "epd4in2b_V2.h" 
 #include "epdpaint.h"
 
-#include <Adafruit_LittleFS.h>
+// --- 4.2寸屏幕参数 ---
+// 分辨率：400 x 300
+// 显存计算：400 * 300 / 8 = 15000 字节
+#define EPD_WIDTH   400
+#define EPD_HEIGHT  300
 
-// --- 蓝牙对象 ---
-BLEClientService        ctsSvc(UUID16_SVC_CURRENT_TIME);
-BLEClientCharacteristic ctcChar(UUID16_CHR_CURRENT_TIME);
+// 定义双缓冲区 (nRF52840 RAM 充足，可以放心开)
+unsigned char imageBlack[15000];
+unsigned char imageRed[15000];
 
-// --- 时间结构体 ---
-struct cts_time_t {
-  uint16_t year;
-  uint8_t month;
-  uint8_t day;
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t second;
-  uint8_t day_of_week;
-  uint8_t fractions256;
-  uint8_t adjust_reason;
-} __attribute__((packed));
+// 创建对象
+Epd epd;
+Paint paintBlack(imageBlack, EPD_WIDTH, EPD_HEIGHT);
+Paint paintRed(imageRed, EPD_WIDTH, EPD_HEIGHT);
 
-extern Epd epd;
-extern Paint paint; 
-extern bool isFirstUpdate; 
-extern int prevSecond;  
-extern BLEUart bleuart;
-
-// --- 函数声明 ---
-void setupDisplay();
-void updateClockDisplay();
-
-void setupBLE();
-void connect_callback(uint16_t conn_handle);
-void disconnect_callback(uint16_t conn_handle, uint8_t reason);
-void notify_callback(BLEClientCharacteristic* chr, uint8_t* data, uint16_t len);
-void pair_callback(uint16_t conn_handle, uint8_t auth_status);
-void handleBLEUart(void);
-
-extern const unsigned char gImage_test[2480];
-extern unsigned char image[4000]; 
+extern const unsigned char bmp_data[]; 
+extern const unsigned char bmp_data2[]; // 来自 imagedata.h
 
 void setup() {
   Serial.begin(115200);
+  // while(!Serial) delay(10); // 如果需要串口调试，可以取消注释等待连接
+  // delay(1000); 
+  Serial.println("=== 4.2inch SSD1683 Test Start ===");
 
-  epd.Init(FULL); 
-  epd.Clear(); 
-  Serial.println("Initializing display...");
+  // 1. 初始化屏幕
+  // 如果 Init 失败（返回非0），通常是接线问题或 BUSY 引脚状态判断反了
+  if (epd.Init() != 0) {
+      Serial.println("EPD Init Failed! Check wiring & BUSY pin logic.");
+      while(1) delay(100); // 死循环卡住
+  }
+  Serial.println("EPD Init Success.");
 
-  paint.SetWidth(epd.width);
-  paint.SetHeight(epd.height);
-  paint.SetRotate(ROTATE_0);
+  paintBlack.SetRotate(ROTATE_90);
+  paintRed.SetRotate(ROTATE_90);
 
-  setupDisplay(); 
-  setupBLE();
+  // 2. 清屏 (刷白)
+  // 这一步很重要，用于清除之前的残影，并测试 Clear 函数是否正常
+  Serial.println("Clearing Screen...");
+  epd.ClearFrame(); 
+  // delay(500);
+
+  // 3. 绘制黑色内容
+  Serial.println("Drawing Black Image...");
+  paintBlack.Clear(1); // 这里的 UNCOLORED 代表白色(0xFF)
   
+  // 画一些图形和文字
+  // paintBlack.DrawStringAt(10, 10, "Hello! 4.2 E-Paper", &Font24, 0);
+  // paintBlack.DrawStringAt(10, 40, "SSD1683 Driver Test", &Font20, 0);
+  // paintBlack.DrawRectangle(2, 2, 398, 298, 0); // 外边框
+  // paintBlack.DrawLine(0, 0, 400, 300, 0);      // 对角线
+  paintBlack.DrawStringAt(0, 0, "Rei Ayanami", &Font16, 0);
+  paintBlack.DrawFilledRectangle(0, 18, 300, 20, 0);      // 
+  paintBlack.DrawImage(0, 20, 300, 380, bmp_data, 0); 
+
+  // 4. 绘制红色内容
+  Serial.println("Drawing Red Image...");
+  paintRed.Clear(0); // 这里 UNCOLORED 代表透明/无色(0x00 或 0xFF，取决于驱动实现)
+  
+  // // 画个红色的实心圆和文字
+  paintRed.DrawStringAt(0, 0, "Rei Ayanami", &Font16, 1);
+  paintRed.DrawImage(20, 280, 100, 100, bmp_data2, 1);
+  // paintRed.DrawFilledCircle(200, 150, 50, 1);
+  // paintRed.DrawStringAt(10, 80, "Red Color", &Font20, 1);
+  // paintRed.DrawImage(250, 200, 112, 155, bmp_data, 0); 
+
+  // 5. 发送数据并刷新
+  // 这一步调用的是你刚刚修改过的 DisplayFrame
+  Serial.println("Displaying Frame...");
+  epd.DisplayFrame(imageBlack, imageRed);
+  
+  // 6. 进入休眠
+  // 刷新完成后必须休眠，否则 SSD1683 芯片会持续发热并损坏屏幕
+  Serial.println("Going to Sleep...");
+  epd.Sleep();
+  
+  Serial.println("Test Done.");
 }
 
 void loop() {
-  handleBLEUart();
-  if (second() != prevSecond && year() > 2000) {
-    prevSecond = second();
-    updateClockDisplay();
-  }
-}
-
-// --- 蓝牙部分 ---
-void setupBLE() {
-  Bluefruit.begin(1, 0); 
-  Bluefruit.setName("EClock"); 
-
-  Bluefruit.autoConnLed(false); 
-  Bluefruit.Security.begin(); 
-  Bluefruit.Security.setIOCaps(false, false, false); 
-  Bluefruit.Security.setPairCompleteCallback(pair_callback); 
-  Bluefruit.Periph.setConnectCallback(connect_callback);
-  Bluefruit.Periph.setDisconnectCallback(disconnect_callback);
-
-  ctsSvc.begin();
-  ctcChar.setNotifyCallback(notify_callback);
-  ctcChar.begin();
-  bleuart.begin();// 初始化 UART 服务
-
-  Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
-  Bluefruit.Advertising.addName();
-  Bluefruit.Advertising.addService(bleuart); // 【新增】广播 UART 服务
-  Bluefruit.Advertising.restartOnDisconnect(true);
-  Bluefruit.Advertising.setInterval(32, 244); 
-  Bluefruit.Advertising.start(0); 
-}
-
-void connect_callback(uint16_t conn_handle) {
-  Serial.println("Connected!");
-
-  BLEConnection* connection = Bluefruit.Connection(conn_handle);
-  // 如果还没有绑定过，这会触发手机弹出配对窗口。
-  // 如果已经绑定过，这会加密链路。
-  if (!connection->bonded()) {
-    Serial.println("Requesting Pairing...");
-    connection->requestPairing();
-  } else {
-    Serial.println("Already Bonded, waiting for security...");
-    // 如果已经绑定，会自动进入加密状态，我们在 connection_secured_callback 里处理
-  }
-
-  if (ctsSvc.discover(conn_handle)) {
-    if (ctcChar.discover()) {
-      ctcChar.enableNotify(); 
-      cts_time_t timeData;
-      if (ctcChar.read(&timeData, sizeof(timeData)) >= 7) {
-         setTime(timeData.hour, timeData.minute, timeData.second, 
-                 timeData.day, timeData.month, timeData.year);
-         isFirstUpdate = true;
-         updateClockDisplay(); 
-      }
-    }
-  }
-}
-
-void disconnect_callback(uint16_t conn_handle, uint8_t reason) {
-  Serial.println("Disconnected");
-}
-
-void notify_callback(BLEClientCharacteristic* chr, uint8_t* data, uint16_t len) {
-  if (len >= 7) {
-    cts_time_t* t = (cts_time_t*)data;
-    setTime(t->hour, t->minute, t->second, t->day, t->month, t->year);
-  }
-}
-
-void pair_callback(uint16_t conn_handle, uint8_t auth_status) {
-  if (auth_status == BLE_GAP_SEC_STATUS_SUCCESS) Serial.println("Paired");
+  // 墨水屏不需要在 loop 里频繁刷新
+  // 闪烁一下板载 LED 表示程序还在运行
+  // digitalWrite(LED_BUILTIN, HIGH);
+  // delay(1000);
+  // digitalWrite(LED_BUILTIN, LOW);
+  // delay(1000);
 }
