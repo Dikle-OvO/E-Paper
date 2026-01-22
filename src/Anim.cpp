@@ -136,6 +136,8 @@ void updateClockDisplay() {
   }
 }
 
+extern const unsigned char gImage_test[2480];
+
 void setupDisplay() {
 
   paint.Clear(UNCOLORED);
@@ -144,20 +146,26 @@ void setupDisplay() {
     // paint.DrawFilledRectangle(0, 10+i*20, 122, 10+i*20+5, COLORED);
   }
   
+
+  
+  paint.DrawImage(0, 40, 122, 155, gImage_test, COLORED);
+  paint.DrawStringAt(0, 10, "Rei Ayanami", &Font16, COLORED);
+  paint.DrawFilledRectangle(0, 38, 122, 40, COLORED);
+
 // 大黑色矩形背景
-  paint.DrawFilledRectangle(10, 80, 112, 170, COLORED);
+  // paint.DrawFilledRectangle(10, 80, 112, 170, COLORED);
 
  
 
-  const char* t1 = "E-PAPER";
+  // const char* t1 = "E-PAPER";
 
-  const char* t2 = "CLOCK";
+  // const char* t2 = "CLOCK";
 
  
 
-  paint.DrawStringAt(getCenterX(t1, &Font20), 100, t1, &Font20, UNCOLORED);
+  // paint.DrawStringAt(getCenterX(t1, &Font20), 100, t1, &Font20, UNCOLORED);
 
-  paint.DrawStringAt(getCenterX(t2, &Font24), 130, t2, &Font24, UNCOLORED);
+  // paint.DrawStringAt(getCenterX(t2, &Font24), 130, t2, &Font24, UNCOLORED);
 
 //   paint.DrawChinese(10, 10, 0, &chinese32, COLORED);
 //   paint.DrawChinese(45, 10, 1, &chinese32, COLORED);

@@ -47,24 +47,14 @@ extern unsigned char image[4000];
 
 void setup() {
   Serial.begin(115200);
-  
+
   epd.Init(FULL); 
   epd.Clear(); 
-  
+  Serial.println("Initializing display...");
 
   paint.SetWidth(epd.width);
   paint.SetHeight(epd.height);
   paint.SetRotate(ROTATE_0);
-  paint.Clear(1);
-
-  paint.DrawImage(0, 40, 122, 155, gImage_test, 0);
-
-    // 3. 你还可以继续画别的东西，比如时间
-  paint.DrawStringAt(0, 10, "Rei Ayanami", &Font16, 0);
-
-    // 4. 刷新到屏幕 (这里将合成好的整屏数据发给硬件)
-  epd.Display(image);
-  while(1);
 
   setupDisplay(); 
   setupBLE();
