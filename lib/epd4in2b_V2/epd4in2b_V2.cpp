@@ -61,7 +61,7 @@ int Epd::Init(void) {
     SendCommand(0x01);
     SendData(0x2B); // (300-1)%256
     SendData(0x01); // (300-1)/256
-    SendData(0x01);
+    SendData(0x01); // 左右镜像
 
     // 5. 数据进入模式 (Data Entry Mode)
     // 0x01: X递增, Y递减 (符合一般绘图习惯)
