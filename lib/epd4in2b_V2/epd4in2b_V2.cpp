@@ -102,7 +102,7 @@ int Epd::Init(void) {
     
     WaitUntilIdle();
     
-    // 【重要】删除了 Lut() 调用，使用屏幕内置 OTP 波形
+    // 删除了 Lut() 调用，使用屏幕内置 OTP 波形
     return 0;
 }
 
