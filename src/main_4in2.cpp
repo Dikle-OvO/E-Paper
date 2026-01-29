@@ -94,10 +94,10 @@ void drawDottedLine(Paint &p, int x1, int y1, int x2, int y2, int color) {
 
 // 绘制角标 (Corner Brackets)
 void drawBracket(int x, int y, int w, int h, int len) {
-    paintBlack.DrawLine(x, y, x + len, y, 0);       // 左上横
-    paintBlack.DrawLine(x, y, x, y + len, 0);       // 左上竖
-    paintBlack.DrawLine(x + w, y + h, x + w - len, y + h, 0); // 右下横
-    paintBlack.DrawLine(x + w, y + h, x + w, y + h - len, 0); // 右下竖
+    paintBlack.DrawHorizontalLine(x, y, len, 0);      
+    paintBlack.DrawVerticalLine(x, y, len, 0);       
+    paintBlack.DrawHorizontalLine(x + w - len, y + h, len, 0); 
+    paintBlack.DrawVerticalLine(x + w, y + h - len, len, 0); 
 }
 
 // ================== UI 绘制模块 ==================
@@ -148,23 +148,23 @@ void drawHeader() {
     // 左侧实线
     paintBlack.DrawFilledRectangle(0, lineY, 200, lineY + 2, 0);
     // 中间红线
-    paintRed.DrawLine(200, lineY + 1, 300, lineY + 1, 1);
+    paintRed.DrawHorizontalLine(200, lineY + 1, 100,  1);
     // 右侧虚线
     drawDottedLine(paintBlack, 305, lineY + 1, EPD_WIDTH, lineY + 1, 0);
 }
 
 // 2. 绘制星期栏 (反白样式)
 void drawWeekHeader() {
-    int barY = GRID_START_Y - 20;
+    int barY = GRID_START_Y - 18;
     
     // 黑色背景条
     paintBlack.DrawFilledRectangle(MARGIN_X, barY, EPD_WIDTH - MARGIN_X, barY + 18, 0);
     
     // 英文缩写
-    const char* weekEn[7] = { "SU", "MO", "TU", "WE", "TH", "FR", "SA" };
+    const char* weekEn[7] = { "日", "一", "二", "三", "四", "五", "六" };
     
     u8g2.begin(gfx_black);
-    u8g2.setFont(FONT_TECH_TINY); // 使用极小字体或粗体
+    u8g2.setFont(Chinese_FONT); // 使用极小字体或粗体
     u8g2.setFontMode(0);          // 不透明模式 (打底)
     u8g2.setForegroundColor(1);         // 设置绘制色为白
     u8g2.setBackgroundColor(0);   // 设置背景色为黑
@@ -173,7 +173,7 @@ void drawWeekHeader() {
         // 简单居中
         int x = MARGIN_X + i * CELL_W;
         int txtX = x + (CELL_W - 10) / 2; // 估算居中
-        u8g2.setCursor(txtX, barY + 13);
+        u8g2.setCursor(txtX, barY + 15);
         u8g2.print(weekEn[i]);
     }
     
@@ -199,7 +199,7 @@ void drawGrid() {
         int y = GRID_START_Y + row * CELL_H;
 
         // 绘制辅助竖线 (刻度感)
-        paintBlack.DrawLine(x, y, x, y + 8, 0);
+        // paintBlack.DrawVerticalLine(x, y, 8, 0);
 
         // 文字居中计算
         char numStr[3];
@@ -223,12 +223,8 @@ void drawGrid() {
             paintBlack.DrawLine(x + 5, y + 15, x - 2, y + 15, 0);
             
             // 3. 写字
-            // 在 E-Ink 逻辑中，通常不能在红色上直接写白色(epdpaint限制)。
-            // 视觉技巧：我们在红色块旁边写，或者把数字作为镂空处理(太复杂)。
-            // 简单方案：在红块上方叠加黑色文字，或者用黑色方块反白字。
-            
             // 这里采用：黑色实心块(反白字) + 红色下划线，这是比较稳妥的显示方式
-            paintBlack.DrawFilledRectangle(x + 5, y + 4, x + CELL_W - 5, y + 26, 0);
+            // paintBlack.DrawFilledRectangle(x + 5, y + 4, x + CELL_W - 5, y + 26, 0);
             
             u8g2.begin(gfx_red);
             u8g2.setForegroundColor(0); // 白
@@ -238,7 +234,7 @@ void drawGrid() {
             u8g2.setBackgroundColor(1);
 
             // 加上红色角标表示"Active"
-            paintRed.DrawFilledRectangle(x + CELL_W - 10, y + 4, x + CELL_W - 5, y + 9, 1);
+            // paintRed.DrawFilledRectangle(x + CELL_W - 10, y + 4, x + CELL_W - 5, y + 9, 1);
 
         } else if (col == 0 || col == 6) {
             // [周末]: 黑色字 + 红色小三角
@@ -247,7 +243,7 @@ void drawGrid() {
             u8g2.print(numStr);
             
             // 右下角红色斜线
-            paintRed.DrawLine(x + CELL_W - 8, y + 24, x + CELL_W - 4, y + 24, 1);
+            paintRed.DrawHorizontalLine(x + CELL_W - 8, y + 24, 4, 1);
             paintRed.DrawLine(x + CELL_W - 6, y + 22, x + CELL_W - 4, y + 24, 1);
             
         } else {
@@ -274,7 +270,7 @@ void drawFooter() {
     u8g2.print("NO.77 // SECTOR_09");
     
     // 底部红线
-    paintRed.DrawLine(MARGIN_X, footerY + 5, EPD_WIDTH - MARGIN_X, footerY + 5, 1);
+    paintRed.DrawHorizontalLine(MARGIN_X, footerY + 5, EPD_WIDTH - 2 * MARGIN_X, 1);
 }
 
 // ================== 主程序 ==================
